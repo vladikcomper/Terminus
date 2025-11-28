@@ -579,7 +579,7 @@ class TerminalStream(pyte.Stream):
             "1337": "handle_iterm_protocol"
         }
         self._osc_termination_pattern = re.compile(
-            "|".join(map(re.escape, [ctrl.ST_C0, ctrl.ST_C1, ctrl.BEL, ctrl.CR])))
+            "|".join(map(re.escape, [ctrl.ST_C0, ctrl.ST_C1, ctrl.BEL, ctrl.CR, ctrl.ESC + '\\'])))
         self.yield_what = None
         super().__init__(*args, **kwargs)
 
@@ -599,7 +599,7 @@ class TerminalStream(pyte.Stream):
         CAN_OR_SUB = ctrl.CAN + ctrl.SUB
         ALLOWED_IN_CSI = "".join([ctrl.BEL, ctrl.BS, ctrl.HT, ctrl.LF,
                                   ctrl.VT, ctrl.FF, ctrl.CR])
-        OSC_TERMINATORS = set([ctrl.ST_C0, ctrl.ST_C1, ctrl.BEL, ctrl.CR])
+        OSC_TERMINATORS = set([ctrl.ST_C0, ctrl.ST_C1, ctrl.BEL, ctrl.CR, ctrl.ESC + '\\'])
 
         def create_dispatcher(mapping):
             return defaultdict(lambda: debug, dict(
@@ -709,6 +709,8 @@ class TerminalStream(pyte.Stream):
                 code = ""
                 while True:
                     char = yield
+                    if char == ESC:
+                        char += yield
                     if char in OSC_TERMINATORS or char == ";":
                         break
                     code += char
@@ -722,6 +724,8 @@ class TerminalStream(pyte.Stream):
                 if char == ";":
                     while True:
                         block = yield OSC_PARAM
+                        if block == ESC:
+                            block += yield OSC_PARAM
                         if block in OSC_TERMINATORS:
                             break
                         param += block
